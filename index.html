@@ -142,15 +142,26 @@
     }
 
     .todo-row {
-      display: flex;
+      display: grid;
+      grid-template-columns: 20px 1fr auto;
       align-items: center;
-      justify-content: space-between;
-      gap: 8px;
+      gap: 10px;
       margin-bottom: 6px;
       border: 1px solid var(--line);
       border-radius: 8px;
       padding: 8px;
       background: #fff;
+    }
+
+    .todo-row input[type="checkbox"] {
+      margin: 0;
+    }
+
+    .todo-row span {
+      line-height: 1.35;
+      white-space: normal;
+      word-break: normal;
+      overflow-wrap: anywhere;
     }
 
     .todo-row.done span {
@@ -321,8 +332,7 @@
         btn.innerHTML = `<strong>${escapeHtml(note.title)}</strong><small>Aktualisiert: ${updated}</small>`;
         btn.onclick = () => {
           state.selectedNoteId = note.id;
-          renderEditor();
-          persist("Notiz geöffnet");
+          persistAndRender("Notiz geöffnet");
         };
         noteList.appendChild(btn);
       });
@@ -339,7 +349,8 @@
       const title = document.createElement("input");
       title.value = note.title;
       title.placeholder = "Titel";
-      title.oninput = () => updateNote(note.id, { title: title.value });
+      title.oninput = () => updateNote(note.id, { title: title.value }, false);
+      title.onblur = () => persistAndRender("Titel gespeichert");
 
       const content = document.createElement("textarea");
       content.value = note.content;
@@ -361,13 +372,14 @@
       actions.className = "actions";
       actions.innerHTML = `
         <button id="deleteNote">Notiz löschen</button>
-        <button class="primary" id="duplicateNote">Duplizieren</button>
       `;
 
       editor.append(title, content, todoBox, actions);
 
-      const todoInput = document.getElementById("todoInput");
-      document.getElementById("todoAddBtn").onclick = () => {
+      const todoInput = todoBox.querySelector("#todoInput");
+      const todoAddBtn = todoBox.querySelector("#todoAddBtn");
+
+      todoAddBtn.onclick = () => {
         if (!todoInput.value.trim()) return;
         note.todos.push({ id: crypto.randomUUID(), text: todoInput.value.trim(), done: false });
         updateNote(note.id, { todos: note.todos });
@@ -379,19 +391,6 @@
         state.notes = state.notes.filter((n) => n.id !== note.id);
         state.selectedNoteId = state.notes.find((n) => n.topicId === state.selectedTopicId)?.id || null;
         persistAndRender("Notiz gelöscht");
-      };
-
-      document.getElementById("duplicateNote").onclick = () => {
-        const copy = {
-          ...structuredClone(note),
-          id: crypto.randomUUID(),
-          title: `${note.title} (Kopie)`,
-          createdAt: nowIso(),
-          updatedAt: nowIso()
-        };
-        state.notes.unshift(copy);
-        state.selectedNoteId = copy.id;
-        persistAndRender("Notiz dupliziert");
       };
 
       renderTodos(note);
@@ -411,11 +410,6 @@
         const row = document.createElement("div");
         row.className = `todo-row ${todo.done ? "done" : ""}`;
 
-        const left = document.createElement("label");
-        left.style.display = "flex";
-        left.style.alignItems = "center";
-        left.style.gap = "8px";
-
         const check = document.createElement("input");
         check.type = "checkbox";
         check.checked = todo.done;
@@ -434,8 +428,7 @@
           updateNote(note.id, { todos: note.todos });
         };
 
-        left.append(check, text);
-        row.append(left, del);
+        row.append(check, text, del);
         container.appendChild(row);
       });
     }
