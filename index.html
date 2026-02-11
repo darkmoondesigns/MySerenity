@@ -179,11 +179,6 @@
       <button id="addTopic">+ Thema</button>
     </div>
     <div class="list" id="topicList"></div>
-    <div class="panel-header">
-      <button id="exportData" class="full">Export (JSON)</button>
-      <input type="file" id="importData" accept="application/json" hidden />
-      <button id="importBtn" class="full">Import</button>
-    </div>
   </section>
 
   <section class="panel">
@@ -235,30 +230,6 @@
 
     document.getElementById("addNote").addEventListener("click", createMeetingNote);
     searchInput.addEventListener("input", renderNoteList);
-
-    document.getElementById("exportData").addEventListener("click", () => {
-      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `notizen-backup-${new Date().toISOString().slice(0, 10)}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    });
-
-    document.getElementById("importBtn").addEventListener("click", () => document.getElementById("importData").click());
-    document.getElementById("importData").addEventListener("change", async (event) => {
-      const file = event.target.files[0];
-      if (!file) return;
-      try {
-        const imported = JSON.parse(await file.text());
-        if (!imported.topics || !imported.notes) throw new Error("Ungültiges Format");
-        state = imported;
-        persistAndRender("Import erfolgreich");
-      } catch {
-        alert("Import fehlgeschlagen. Bitte eine gültige Export-Datei wählen.");
-      }
-    });
 
     document.addEventListener("keydown", (event) => {
       if (event.altKey && event.key.toLowerCase() === "n") {

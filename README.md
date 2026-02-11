@@ -10,7 +10,6 @@ Eine einfache, lokale Notizen-App für Meetings und Themenorganisation – ohne 
 - Volltextsuche innerhalb eines Themas
 - ToDo-Liste pro Notiz (Checkboxen)
 - Automatisches Speichern im Browser (`localStorage`)
-- JSON Export/Import als Backup
 - Tastenkürzel:
   - `Alt + N`: Neue Meeting-Notiz
   - `Ctrl + S`: Speichern
@@ -19,4 +18,4 @@ Eine einfache, lokale Notizen-App für Meetings und Themenorganisation – ohne 
 
 Einfach `index.html` im Browser öffnen.
 
-> Hinweis: Daten bleiben lokal im Browser. Für Gerätewechsel nutze Export/Import.
+> Hinweis: Daten bleiben lokal im Browser (`localStorage`) auf diesem Gerät/Browser.
