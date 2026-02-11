@@ -142,10 +142,10 @@
     }
 
     .todo-row {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 8px;
+      display: grid;
+      grid-template-columns: 20px 1fr auto;
+      align-items: center;
+      gap: 10px;
       margin-bottom: 6px;
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -153,17 +153,15 @@
       background: #fff;
     }
 
-    .todo-row label {
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
-      flex: 1;
-      min-width: 0;
+    .todo-row input[type="checkbox"] {
+      margin: 0;
     }
 
     .todo-row span {
       line-height: 1.35;
-      overflow-wrap: break-word;
+      white-space: normal;
+      word-break: normal;
+      overflow-wrap: anywhere;
     }
 
     .todo-row.done span {
@@ -334,8 +332,7 @@
         btn.innerHTML = `<strong>${escapeHtml(note.title)}</strong><small>Aktualisiert: ${updated}</small>`;
         btn.onclick = () => {
           state.selectedNoteId = note.id;
-          renderEditor();
-          persist("Notiz geöffnet");
+          persistAndRender("Notiz geöffnet");
         };
         noteList.appendChild(btn);
       });
@@ -413,8 +410,6 @@
         const row = document.createElement("div");
         row.className = `todo-row ${todo.done ? "done" : ""}`;
 
-        const left = document.createElement("label");
-
         const check = document.createElement("input");
         check.type = "checkbox";
         check.checked = todo.done;
@@ -433,8 +428,7 @@
           updateNote(note.id, { todos: note.todos });
         };
 
-        left.append(check, text);
-        row.append(left, del);
+        row.append(check, text, del);
         container.appendChild(row);
       });
     }
