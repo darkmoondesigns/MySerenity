@@ -1,1 +1,493 @@
-Contact me at philippmeier1994@gmail.com
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Meeting Notizen</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f6fb;
+      --panel: #ffffff;
+      --line: #d9dfec;
+      --text: #1e2430;
+      --muted: #5a6478;
+      --accent: #3a72ff;
+      --accent-soft: #e9efff;
+      font-family: Inter, Segoe UI, Roboto, Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 280px 320px 1fr;
+      gap: 12px;
+      padding: 12px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      min-height: calc(100vh - 24px);
+      overflow: hidden;
+    }
+
+    .panel h2 {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--muted);
+      margin: 0;
+    }
+
+    .panel-header {
+      padding: 14px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .list { overflow: auto; padding: 8px; }
+
+    button, input, textarea {
+      font: inherit;
+      color: inherit;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 10px;
+      padding: 8px 10px;
+      cursor: pointer;
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .full { width: 100%; }
+
+    .item {
+      width: 100%;
+      text-align: left;
+      margin-bottom: 6px;
+      border-radius: 10px;
+      padding: 10px;
+      border: 1px solid transparent;
+      background: transparent;
+    }
+
+    .item.active {
+      background: var(--accent-soft);
+      border-color: #bfd0ff;
+    }
+
+    .item strong { display: block; font-size: 14px; }
+    .item small { color: var(--muted); }
+
+    .search {
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .search input, .editor input, .todo-add input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      background: #fff;
+    }
+
+    .editor {
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+      overflow: auto;
+    }
+
+    textarea {
+      min-height: 280px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      resize: vertical;
+      line-height: 1.4;
+    }
+
+    .muted { color: var(--muted); font-size: 13px; }
+
+    .todo-box {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      background: #fbfcff;
+    }
+
+    .todo-add {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .todo-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px;
+      background: #fff;
+    }
+
+    .todo-row.done span {
+      text-decoration: line-through;
+      color: var(--muted);
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    @media (max-width: 1100px) {
+      body {
+        grid-template-columns: 1fr;
+      }
+      .panel { min-height: auto; }
+    }
+  </style>
+</head>
+<body>
+  <section class="panel">
+    <div class="panel-header">
+      <h2>Themen</h2>
+      <button id="addTopic">+ Thema</button>
+    </div>
+    <div class="list" id="topicList"></div>
+    <div class="panel-header">
+      <button id="exportData" class="full">Export (JSON)</button>
+      <input type="file" id="importData" accept="application/json" hidden />
+      <button id="importBtn" class="full">Import</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-header">
+      <h2>Notizen</h2>
+      <button id="addNote" class="primary">+ Meeting</button>
+    </div>
+    <div class="search"><input id="searchNotes" placeholder="Suche nach Titel oder Inhalt..." /></div>
+    <div class="list" id="noteList"></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-header">
+      <h2>Editor</h2>
+      <span class="muted" id="saveState">Bereit</span>
+    </div>
+    <div class="editor" id="editor"></div>
+  </section>
+
+  <script>
+    const STORAGE_KEY = "meeting-notes-app-v1";
+    const nowIso = () => new Date().toISOString();
+
+    const defaultState = {
+      topics: [{ id: crypto.randomUUID(), name: "Allgemein" }],
+      notes: [],
+      selectedTopicId: null,
+      selectedNoteId: null
+    };
+
+    let state = loadState();
+    if (!state.selectedTopicId && state.topics.length) {
+      state.selectedTopicId = state.topics[0].id;
+    }
+
+    const topicList = document.getElementById("topicList");
+    const noteList = document.getElementById("noteList");
+    const editor = document.getElementById("editor");
+    const saveState = document.getElementById("saveState");
+    const searchInput = document.getElementById("searchNotes");
+
+    document.getElementById("addTopic").addEventListener("click", () => {
+      const name = prompt("Name des Themas:");
+      if (!name) return;
+      state.topics.push({ id: crypto.randomUUID(), name: name.trim() });
+      state.selectedTopicId = state.topics[state.topics.length - 1].id;
+      persistAndRender("Thema erstellt");
+    });
+
+    document.getElementById("addNote").addEventListener("click", createMeetingNote);
+    searchInput.addEventListener("input", renderNoteList);
+
+    document.getElementById("exportData").addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `notizen-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById("importBtn").addEventListener("click", () => document.getElementById("importData").click());
+    document.getElementById("importData").addEventListener("change", async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      try {
+        const imported = JSON.parse(await file.text());
+        if (!imported.topics || !imported.notes) throw new Error("Ungültiges Format");
+        state = imported;
+        persistAndRender("Import erfolgreich");
+      } catch {
+        alert("Import fehlgeschlagen. Bitte eine gültige Export-Datei wählen.");
+      }
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.altKey && event.key.toLowerCase() === "n") {
+        event.preventDefault();
+        createMeetingNote();
+      }
+      if (event.ctrlKey && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        persistAndRender("Gespeichert");
+      }
+    });
+
+    function loadState() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY)) || structuredClone(defaultState);
+      } catch {
+        return structuredClone(defaultState);
+      }
+    }
+
+    function persist(message = "Gespeichert") {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      saveState.textContent = `${message} · ${new Date().toLocaleTimeString("de-DE")}`;
+    }
+
+    function persistAndRender(message) {
+      persist(message);
+      render();
+    }
+
+    function createMeetingNote() {
+      if (!state.selectedTopicId) return;
+      const stamp = new Date();
+      const title = `Meeting ${stamp.toLocaleDateString("de-DE")} ${stamp.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`;
+      const note = {
+        id: crypto.randomUUID(),
+        topicId: state.selectedTopicId,
+        title,
+        content: "",
+        todos: [],
+        createdAt: nowIso(),
+        updatedAt: nowIso()
+      };
+      state.notes.unshift(note);
+      state.selectedNoteId = note.id;
+      persistAndRender("Neue Notiz erstellt");
+    }
+
+    function render() {
+      renderTopicList();
+      renderNoteList();
+      renderEditor();
+    }
+
+    function renderTopicList() {
+      topicList.innerHTML = "";
+      state.topics.forEach((topic) => {
+        const btn = document.createElement("button");
+        btn.className = `item ${topic.id === state.selectedTopicId ? "active" : ""}`;
+        const count = state.notes.filter((note) => note.topicId === topic.id).length;
+        btn.innerHTML = `<strong>${escapeHtml(topic.name)}</strong><small>${count} Notizen</small>`;
+        btn.onclick = () => {
+          state.selectedTopicId = topic.id;
+          const first = state.notes.find((note) => note.topicId === topic.id);
+          state.selectedNoteId = first?.id || null;
+          persistAndRender("Thema gewechselt");
+        };
+        topicList.appendChild(btn);
+      });
+    }
+
+    function renderNoteList() {
+      noteList.innerHTML = "";
+      const query = searchInput.value.trim().toLowerCase();
+      const notes = state.notes
+        .filter((note) => note.topicId === state.selectedTopicId)
+        .filter((note) => !query || `${note.title}\n${note.content}`.toLowerCase().includes(query))
+        .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+
+      if (notes.length === 0) {
+        noteList.innerHTML = '<p class="muted" style="padding:10px">Keine Notizen gefunden.</p>';
+        return;
+      }
+
+      notes.forEach((note) => {
+        const btn = document.createElement("button");
+        btn.className = `item ${note.id === state.selectedNoteId ? "active" : ""}`;
+        const updated = new Date(note.updatedAt).toLocaleString("de-DE");
+        btn.innerHTML = `<strong>${escapeHtml(note.title)}</strong><small>Aktualisiert: ${updated}</small>`;
+        btn.onclick = () => {
+          state.selectedNoteId = note.id;
+          renderEditor();
+          persist("Notiz geöffnet");
+        };
+        noteList.appendChild(btn);
+      });
+    }
+
+    function renderEditor() {
+      editor.innerHTML = "";
+      const note = state.notes.find((n) => n.id === state.selectedNoteId);
+      if (!note) {
+        editor.innerHTML = '<p class="muted">Bitte links ein Thema wählen und eine Notiz anlegen.</p>';
+        return;
+      }
+
+      const title = document.createElement("input");
+      title.value = note.title;
+      title.placeholder = "Titel";
+      title.oninput = () => updateNote(note.id, { title: title.value });
+
+      const content = document.createElement("textarea");
+      content.value = note.content;
+      content.placeholder = "Hier deine Meeting-Notiz...";
+      content.oninput = () => updateNote(note.id, { content: content.value }, false);
+      content.onblur = () => persistAndRender("Notiz gespeichert");
+
+      const todoBox = document.createElement("div");
+      todoBox.className = "todo-box";
+      todoBox.innerHTML = `
+        <div class="todo-add">
+          <input id="todoInput" placeholder="ToDo eingeben..." />
+          <button id="todoAddBtn">Hinzufügen</button>
+        </div>
+        <div id="todoListInner"></div>
+      `;
+
+      const actions = document.createElement("div");
+      actions.className = "actions";
+      actions.innerHTML = `
+        <button id="deleteNote">Notiz löschen</button>
+        <button class="primary" id="duplicateNote">Duplizieren</button>
+      `;
+
+      editor.append(title, content, todoBox, actions);
+
+      const todoInput = document.getElementById("todoInput");
+      document.getElementById("todoAddBtn").onclick = () => {
+        if (!todoInput.value.trim()) return;
+        note.todos.push({ id: crypto.randomUUID(), text: todoInput.value.trim(), done: false });
+        updateNote(note.id, { todos: note.todos });
+        todoInput.value = "";
+      };
+
+      document.getElementById("deleteNote").onclick = () => {
+        if (!confirm("Notiz wirklich löschen?")) return;
+        state.notes = state.notes.filter((n) => n.id !== note.id);
+        state.selectedNoteId = state.notes.find((n) => n.topicId === state.selectedTopicId)?.id || null;
+        persistAndRender("Notiz gelöscht");
+      };
+
+      document.getElementById("duplicateNote").onclick = () => {
+        const copy = {
+          ...structuredClone(note),
+          id: crypto.randomUUID(),
+          title: `${note.title} (Kopie)`,
+          createdAt: nowIso(),
+          updatedAt: nowIso()
+        };
+        state.notes.unshift(copy);
+        state.selectedNoteId = copy.id;
+        persistAndRender("Notiz dupliziert");
+      };
+
+      renderTodos(note);
+    }
+
+    function renderTodos(note) {
+      const container = document.getElementById("todoListInner");
+      if (!container) return;
+      container.innerHTML = "";
+
+      if (!note.todos.length) {
+        container.innerHTML = '<p class="muted">Noch keine ToDos.</p>';
+        return;
+      }
+
+      note.todos.forEach((todo) => {
+        const row = document.createElement("div");
+        row.className = `todo-row ${todo.done ? "done" : ""}`;
+
+        const left = document.createElement("label");
+        left.style.display = "flex";
+        left.style.alignItems = "center";
+        left.style.gap = "8px";
+
+        const check = document.createElement("input");
+        check.type = "checkbox";
+        check.checked = todo.done;
+        check.onchange = () => {
+          todo.done = check.checked;
+          updateNote(note.id, { todos: note.todos });
+        };
+
+        const text = document.createElement("span");
+        text.textContent = todo.text;
+
+        const del = document.createElement("button");
+        del.textContent = "✕";
+        del.onclick = () => {
+          note.todos = note.todos.filter((t) => t.id !== todo.id);
+          updateNote(note.id, { todos: note.todos });
+        };
+
+        left.append(check, text);
+        row.append(left, del);
+        container.appendChild(row);
+      });
+    }
+
+    function updateNote(noteId, patch, rerender = true) {
+      const note = state.notes.find((n) => n.id === noteId);
+      if (!note) return;
+      Object.assign(note, patch);
+      note.updatedAt = nowIso();
+      persist(rerender ? "Gespeichert" : "Tippen...");
+      if (rerender) render();
+    }
+
+    function escapeHtml(text) {
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    render();
+  </script>
+</body>
+</html>
