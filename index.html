@@ -220,7 +220,10 @@
       selectedNoteId: null
     };
 
-    let state = reconcileState(loadState());
+    let state = loadState();
+    if (!state.selectedTopicId && state.topics.length) {
+      state.selectedTopicId = state.topics[0].id;
+    }
 
     const topicList = document.getElementById("topicList");
     const noteList = document.getElementById("noteList");
@@ -258,47 +261,6 @@
       }
     }
 
-    function reconcileState(raw) {
-      const safe = raw && typeof raw === "object" ? raw : structuredClone(defaultState);
-      const topics = Array.isArray(safe.topics) ? safe.topics.filter((t) => t && t.id && t.name) : [];
-      const notes = Array.isArray(safe.notes) ? safe.notes : [];
-
-      if (!topics.length) {
-        topics.push({ id: crypto.randomUUID(), name: "Allgemein" });
-      }
-
-      const validTopicIds = new Set(topics.map((t) => t.id));
-      const fallbackTopicId = topics[0].id;
-
-      notes.forEach((note) => {
-        if (!note.id) note.id = crypto.randomUUID();
-        if (!note.topicId || !validTopicIds.has(note.topicId)) {
-          note.topicId = fallbackTopicId;
-        }
-        if (!Array.isArray(note.todos)) note.todos = [];
-        if (!note.createdAt) note.createdAt = nowIso();
-        if (!note.updatedAt) note.updatedAt = nowIso();
-      });
-
-      let selectedTopicId = safe.selectedTopicId;
-      if (!selectedTopicId || !validTopicIds.has(selectedTopicId)) {
-        selectedTopicId = notes[0]?.topicId || fallbackTopicId;
-      }
-
-      let selectedNoteId = safe.selectedNoteId;
-      const noteExists = notes.some((n) => n.id === selectedNoteId && n.topicId === selectedTopicId);
-      if (!noteExists) {
-        selectedNoteId = notes.find((n) => n.topicId === selectedTopicId)?.id || null;
-      }
-
-      return {
-        topics,
-        notes,
-        selectedTopicId,
-        selectedNoteId
-      };
-    }
-
     function persist(message = "Gespeichert") {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       saveState.textContent = `${message} · ${new Date().toLocaleTimeString("de-DE")}`;
@@ -328,7 +290,6 @@
     }
 
     function render() {
-      state = reconcileState(state);
       renderTopicList();
       renderNoteList();
       renderEditor();
